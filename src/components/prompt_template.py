@@ -1,8 +1,4 @@
-def build_rag_prompt(context: str, question: str) -> str:
-    """
-    Strict prompt that forces the model to answer ONLY from context.
-    """
-
+def build_rag_prompt(context: str, question: str, chat_history: str = "") -> str:
     return f"""
 You are a knowledge-based assistant.
 
@@ -13,6 +9,9 @@ You MUST follow these rules:
 3. Do not use external knowledge.
 4. Do not guess or hallucinate.
 5. Keep the answer short and clear.
+
+CHAT HISTORY (for reference):
+{chat_history}
 
 CONTEXT:
 {context}
