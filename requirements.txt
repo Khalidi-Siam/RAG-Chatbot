@@ -1,3 +1,4 @@
 langchain-text-splitters
 pymupdf
 langchain
+google-genai
