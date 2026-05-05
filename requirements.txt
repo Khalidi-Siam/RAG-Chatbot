@@ -4,3 +4,6 @@ langchain
 google-genai
 faiss-cpu
 numpy
+fastapi
+uvicorn
+python-multipart
