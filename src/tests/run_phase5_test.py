@@ -6,7 +6,7 @@ PDF_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "uploads", "sam
 
 
 if __name__ == "__main__":
-    rag = RAGPipeline(similarity_threshold=0.6, top_k=5)
+    rag = RAGPipeline()
 
     print("=== Ingesting PDF ===")
     ingest_result = rag.ingest_pdf(PDF_PATH)

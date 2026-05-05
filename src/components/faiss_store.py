@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import faiss
+from logger import logging
 
 
 class FAISSVectorStore:
@@ -28,8 +29,10 @@ class FAISSVectorStore:
             self.index = faiss.read_index(self.index_path)
             with open(self.meta_path, "r", encoding="utf-8") as f:
                 self.metadata = json.load(f)
+            logging.info(f"Loaded FAISS index '{self.collection_name}' with {self.index.ntotal} vectors")
         else:
             self.metadata = []
+            logging.info(f"No existing FAISS index found for '{self.collection_name}'. Starting fresh.")
 
     def _save(self):
         if self.index is not None:
@@ -37,6 +40,7 @@ class FAISSVectorStore:
 
         with open(self.meta_path, "w", encoding="utf-8") as f:
             json.dump(self.metadata, f, ensure_ascii=False, indent=2)
+        logging.info(f"FAISS index persisted: {self.index.ntotal if self.index else 0} vectors saved.")
 
     def add_documents(self, chunks: list[dict], embeddings: list[list[float]]):
         """
@@ -63,10 +67,14 @@ class FAISSVectorStore:
             self.metadata.append({
                 "id": chunk["chunk_id"],
                 "document": chunk["text"],
-                "metadata": {"page": chunk.get("page")}
+                "metadata": {
+                    "page": chunk.get("page"),
+                    "source_file": chunk.get("source_file", "unknown")
+                }
             })
 
         self._save()
+        logging.info(f"Added {len(chunks)} chunks. Total vectors in index: {self.index.ntotal}")
 
     def query(self, query_embedding: list[float], top_k: int = 5) -> dict:
         """
@@ -106,6 +114,7 @@ class FAISSVectorStore:
             metas_res.append(meta_item["metadata"])
             sims_res.append(float(sim))
 
+        logging.info(f"FAISS query returned {len(ids_res)} results")
         return {
             "ids": ids_res,
             "documents": docs_res,

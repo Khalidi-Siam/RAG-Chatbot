@@ -1,3 +1,5 @@
+from logger import logging
+
 class Retriever:
     def __init__(self, vectorstore, similarity_threshold: float = 0.6):
         """
@@ -23,6 +25,7 @@ class Retriever:
         raw = self.vectorstore.query(query_embedding, top_k=top_k)
 
         if not raw:
+            logging.warning("No results returned from vector store.")
             return []
 
         results = []
@@ -38,8 +41,10 @@ class Retriever:
                     "chunk_id": chunk_id,
                     "text": doc,
                     "page": meta.get("page"),
+                    "source_file": meta.get("source_file", "unknown"),  # propagate source_file
                     "cosine_similarity": sim
                 })
 
         results.sort(key=lambda x: x["cosine_similarity"], reverse=True)
+        logging.info(f"Retrieved {len(results)} chunks above threshold {self.similarity_threshold}")
         return results

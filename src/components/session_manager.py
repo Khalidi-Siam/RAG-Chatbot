@@ -1,4 +1,5 @@
 import uuid
+from logger import logging
 
 class SessionManager:
     def __init__(self):
@@ -8,6 +9,7 @@ class SessionManager:
     def create_session(self) -> str:
         session_id = str(uuid.uuid4())
         self.sessions[session_id] = []
+        logging.info(f"New session created: {session_id}")
         return session_id
 
     def session_exists(self, session_id: str) -> bool:
@@ -21,6 +23,7 @@ class SessionManager:
             "role": role,
             "message": message
         })
+        logging.info(f"[Session {session_id[:8]}...] {role.upper()} message added.")
 
     def get_history(self, session_id: str, last_n: int = 6) -> list[dict]:
         """
@@ -34,3 +37,4 @@ class SessionManager:
     def delete_session(self, session_id: str):
         if session_id in self.sessions:
             del self.sessions[session_id]
+            logging.info(f"Session deleted: {session_id}")

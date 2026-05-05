@@ -1,7 +1,9 @@
+import os
 import re
 import uuid
 import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from logger import logging
 
 
 class PDFIngestor:
@@ -37,6 +39,7 @@ class PDFIngestor:
             {"page": 2, "text": "..."}
         ]
         """
+        logging.info(f"Opening PDF: {pdf_path}")
         doc = fitz.open(pdf_path)
         pages = []
 
@@ -51,19 +54,22 @@ class PDFIngestor:
                     "page": page_index + 1,
                     "text": cleaned_text
                 })
+            else:
+                logging.warning(f"Page {page_index + 1} is empty or unreadable - skipped.")
 
         doc.close()
+        logging.info(f"Extracted {len(pages)} non-empty pages from '{os.path.basename(pdf_path)}'")
         return pages
 
-    def chunk_pages(self, pages: list[dict]) -> list[dict]:
+    def chunk_pages(self, pages: list[dict], source_file: str) -> list[dict]:
         """
         Convert extracted pages into chunks.
 
         Returns:
         [
-            {"chunk_id": "...", "page": 1, "text": "..."},
-            {"chunk_id": "...", "page": 1, "text": "..."},
-            {"chunk_id": "...", "page": 2, "text": "..."},
+            {"chunk_id": "...", "page": 1, "text": "...", "source_file": "..."},
+            {"chunk_id": "...", "page": 1, "text": "...", "source_file": "..."},
+            {"chunk_id": "...", "page": 2, "text": "...", "source_file": "..."},
         ]
         """
         chunks = []
@@ -78,7 +84,8 @@ class PDFIngestor:
                 chunks.append({
                     "chunk_id": str(uuid.uuid4()),
                     "page": page_num,
-                    "text": chunk.strip()
+                    "text": chunk.strip(),
+                    "source_file": source_file
                 })
 
         return chunks
@@ -93,9 +100,11 @@ class PDFIngestor:
             "chunks": [...]
         }
         """
+        source_file = os.path.basename(pdf_path)
         pages = self.extract_pages(pdf_path)
-        chunks = self.chunk_pages(pages)
+        chunks = self.chunk_pages(pages, source_file)
 
+        logging.info(f"Ingestion complete: {len(pages)} pages -> {len(chunks)} chunks from '{source_file}'")
         return {
             "pages": pages,
             "chunks": chunks

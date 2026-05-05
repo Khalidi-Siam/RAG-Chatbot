@@ -1,6 +1,7 @@
 import os
 from google import genai
 from google.genai import types
+from logger import logging
 
 class GeminiEmbedder:
     def __init__(self, api_key: str = None, model_name: str = "gemini-embedding-001"):
@@ -23,6 +24,8 @@ class GeminiEmbedder:
         if not texts:
             return []
 
+        logging.info(f"Embedding {len(texts)} document chunks with model '{self.model_name}'")
+
         # The new SDK uses client.models.embed_content
         result = self.client.models.embed_content(
             model=self.model_name,
@@ -41,6 +44,8 @@ class GeminiEmbedder:
         """
         if not query or not query.strip():
             return []
+
+        logging.info(f"Embedding query: '{query[:60]}...'" if len(query) > 60 else f"Embedding query: '{query}'")
 
         result = self.client.models.embed_content(
             model=self.model_name,

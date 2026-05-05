@@ -5,15 +5,17 @@ from components.retriever import Retriever
 from components.gemini_llm import GeminiLLM
 from components.prompt_template import build_rag_prompt
 from components.session_manager import SessionManager
+from config.settings import settings
+from logger import logging
 
 
 class RAGPipeline:
     def __init__(
         self,
-        chunk_size: int = 1000,
-        chunk_overlap: int = 150,
-        similarity_threshold: float = 0.6,
-        top_k: int = 5
+        chunk_size: int = settings.chunk_size,
+        chunk_overlap: int = settings.chunk_overlap,
+        similarity_threshold: float = settings.similarity_threshold,
+        top_k: int = settings.top_k
     ):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -21,11 +23,11 @@ class RAGPipeline:
         self.top_k = top_k
 
         self.ingestor = PDFIngestor(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap)
-        self.embedder = GeminiEmbedder(model_name="gemini-embedding-001")
+        self.embedder = GeminiEmbedder(model_name=settings.embedding_model)
 
         self.vectorstore = FAISSVectorStore(
-            persist_path="faiss_db",
-            collection_name="pdf_knowledge"
+            persist_path=settings.faiss_persist_path,
+            collection_name=settings.faiss_collection_name
         )
 
         self.retriever = Retriever(
@@ -33,7 +35,7 @@ class RAGPipeline:
             similarity_threshold=self.similarity_threshold
         )
 
-        self.llm = GeminiLLM(model_name="gemini-2.5-flash")
+        self.llm = GeminiLLM(model_name=settings.llm_model)
 
         # NEW: session manager
         self.session_manager = SessionManager()
@@ -45,6 +47,7 @@ class RAGPipeline:
         self.session_manager.delete_session(session_id)
 
     def ingest_pdf(self, pdf_path: str):
+        logging.info(f"Starting ingestion: {pdf_path}")
         ingestion_result = self.ingestor.ingest(pdf_path)
         chunks = ingestion_result["chunks"]
 
@@ -53,10 +56,12 @@ class RAGPipeline:
 
         self.vectorstore.add_documents(chunks, embeddings)
 
-        return {
+        result = {
             "total_pages": len(ingestion_result["pages"]),
             "total_chunks": len(chunks)
         }
+        logging.info(f"Ingestion complete: {result}")
+        return result
 
     def _format_chat_history(self, history: list[dict]) -> str:
         """
@@ -75,6 +80,8 @@ class RAGPipeline:
         - adds history into prompt
         """
 
+        logging.info(f"[Session {session_id[:8]}...] Question received: '{question[:80]}'")
+
         if not self.session_manager.session_exists(session_id):
             raise ValueError("Invalid session_id. Start a session first.")
 
@@ -83,8 +90,8 @@ class RAGPipeline:
 
         query_embedding = self.embedder.embed_query(question)
         retrieved_chunks = self.retriever.retrieve(query_embedding, top_k=self.top_k)
-
         if not retrieved_chunks:
+            logging.warning(f"[Session {session_id[:8]}...] No matching chunks found for query.")
             answer = "Not found in the knowledge base."
 
             # store assistant response
@@ -102,6 +109,7 @@ class RAGPipeline:
             context_parts.append(f"(Page {chunk['page']}) {chunk['text']}")
             sources.append({
                 "page": chunk["page"],
+                "source_file": chunk["source_file"],
                 "chunk_id": chunk["chunk_id"],
                 "cosine_similarity": chunk["cosine_similarity"]
             })
