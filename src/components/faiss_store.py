@@ -8,8 +8,8 @@ from logger import logging
 class FAISSVectorStore:
     def __init__(
         self,
-        persist_path: str = "faiss_db",
-        collection_name: str = "pdf_knowledge"
+        persist_path: str,
+        collection_name: str
     ):
         self.persist_path = persist_path
         self.collection_name = collection_name

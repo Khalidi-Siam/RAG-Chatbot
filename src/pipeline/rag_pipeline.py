@@ -8,6 +8,8 @@ from components.session_manager import SessionManager
 from config.settings import settings
 from logger import logging
 
+import os
+
 
 class RAGPipeline:
     def __init__(
@@ -22,23 +24,19 @@ class RAGPipeline:
         self.similarity_threshold = similarity_threshold
         self.top_k = top_k
 
-        self.ingestor = PDFIngestor(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap)
+        self.ingestor = PDFIngestor(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap
+        )
+
         self.embedder = GeminiEmbedder(model_name=settings.embedding_model)
-
-        self.vectorstore = FAISSVectorStore(
-            persist_path=settings.faiss_persist_path,
-            collection_name=settings.faiss_collection_name
-        )
-
-        self.retriever = Retriever(
-            vectorstore=self.vectorstore,
-            similarity_threshold=self.similarity_threshold
-        )
-
         self.llm = GeminiLLM(model_name=settings.llm_model)
 
-        # NEW: session manager
         self.session_manager = SessionManager()
+
+    # =========================
+    # SESSION MANAGEMENT
+    # =========================
 
     def start_session(self) -> str:
         return self.session_manager.create_session()
@@ -46,55 +44,91 @@ class RAGPipeline:
     def end_session(self, session_id: str):
         self.session_manager.delete_session(session_id)
 
-    def ingest_pdf(self, pdf_path: str):
+    # =========================
+    # SESSION VECTOR STORE
+    # =========================
+
+    def _get_vectorstore(self, session_id: str):
+        """
+        Each session has its own FAISS DB folder.
+        """
+        faiss_path = os.path.join(
+            settings.faiss_base_dir,
+            f"session_{session_id}"
+        )
+
+        os.makedirs(faiss_path, exist_ok=True)
+
+        return FAISSVectorStore(
+            persist_path=faiss_path,
+            collection_name="pdf_knowledge"
+        )
+
+    # =========================
+    # INGESTION (SESSION BASED)
+    # =========================
+
+    def ingest_pdf(self, pdf_path: str, faiss_path: str):
         logging.info(f"Starting ingestion: {pdf_path}")
+
         ingestion_result = self.ingestor.ingest(pdf_path)
         chunks = ingestion_result["chunks"]
 
         texts = [c["text"] for c in chunks]
         embeddings = self.embedder.embed_documents(texts)
 
-        self.vectorstore.add_documents(chunks, embeddings)
+        # ⚠️ IMPORTANT CHANGE: use session-specific vectorstore
+        vectorstore = FAISSVectorStore(
+            persist_path=faiss_path,
+            collection_name="pdf_knowledge"
+        )
+
+        vectorstore.add_documents(chunks, embeddings)
 
         result = {
             "total_pages": len(ingestion_result["pages"]),
             "total_chunks": len(chunks)
         }
+
         logging.info(f"Ingestion complete: {result}")
         return result
 
+    # =========================
+    # CHAT (SESSION BASED)
+    # =========================
+
     def _format_chat_history(self, history: list[dict]) -> str:
-        """
-        Convert session history list into readable format for prompt.
-        """
         lines = []
         for msg in history:
-            role = msg["role"].upper()
-            lines.append(f"{role}: {msg['message']}")
+            lines.append(f"{msg['role'].upper()}: {msg['message']}")
         return "\n".join(lines)
 
     def ask(self, session_id: str, question: str) -> dict:
-        """
-        Session-based chat:
-        - keeps chat history temporarily
-        - adds history into prompt
-        """
+        logging.info(f"[Session {session_id[:8]}] Q: {question[:80]}")
 
-        logging.info(f"[Session {session_id[:8]}...] Question received: '{question[:80]}'")
 
-        if not self.session_manager.session_exists(session_id):
-            raise ValueError("Invalid session_id. Start a session first.")
-
-        # Store user question in memory
+        # store user message
         self.session_manager.add_message(session_id, "user", question)
 
+        # =========================
+        # SESSION-SPECIFIC VECTOR DB
+        # =========================
+        vectorstore = self._get_vectorstore(session_id)
+
+        retriever = Retriever(
+            vectorstore=vectorstore,
+            similarity_threshold=self.similarity_threshold
+        )
+
         query_embedding = self.embedder.embed_query(question)
-        retrieved_chunks = self.retriever.retrieve(query_embedding, top_k=self.top_k)
+        retrieved_chunks = retriever.retrieve(
+            query_embedding,
+            top_k=self.top_k
+        )
+
         if not retrieved_chunks:
-            logging.warning(f"[Session {session_id[:8]}...] No matching chunks found for query.")
             answer = "Not found in the knowledge base."
 
-            # store assistant response
             self.session_manager.add_message(session_id, "assistant", answer)
 
             return {
@@ -116,7 +150,6 @@ class RAGPipeline:
 
         context = "\n\n".join(context_parts)
 
-        # Get last few chat messages
         history = self.session_manager.get_history(session_id, last_n=6)
         chat_history_text = self._format_chat_history(history)
 
@@ -128,7 +161,6 @@ class RAGPipeline:
 
         answer = self.llm.generate(prompt)
 
-        # Store assistant response in memory
         self.session_manager.add_message(session_id, "assistant", answer)
 
         return {

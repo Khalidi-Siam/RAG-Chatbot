@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     google_api_key: str
+    database_url: str
 
     # Model names
     embedding_model: str = "gemini-embedding-001"
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     top_k: int = 5
 
     # Paths
-    faiss_persist_path: str = "faiss_db"
+    faiss_base_dir: str = "faiss_db"
     faiss_collection_name: str = "pdf_knowledge"
     upload_dir: str = "uploads"
 
