@@ -4,7 +4,7 @@ from google.genai import types
 from logger import logging
 
 class GeminiEmbedder:
-    def __init__(self, api_key: str = None, model_name: str = "gemini-embedding-001"):
+    def __init__(self, api_key: str, model_name: str):
         """
         model_name options:
         - gemini-embedding-001

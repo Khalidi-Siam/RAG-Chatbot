@@ -26,8 +26,14 @@ class RAGPipeline:
             chunk_overlap=self.chunk_overlap
         )
 
-        self.embedder = GeminiEmbedder(model_name=settings.embedding_model)
-        self.llm = GeminiLLM(model_name=settings.llm_model)
+        self.embedder = GeminiEmbedder(
+            api_key=settings.google_api_key, 
+            model_name=settings.embedding_model
+        )
+        self.llm = GeminiLLM(
+            api_key=settings.google_api_key, 
+            model_name=settings.llm_model
+        )
 
 
 

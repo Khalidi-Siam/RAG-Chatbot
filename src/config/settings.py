@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     # Model names
     embedding_model: str = "gemini-embedding-001"
-    llm_model: str = "gemini-2-flash"
+    llm_model: str = "gemini-2.5-flash"
 
     # Chunking
     chunk_size: int = 1000
