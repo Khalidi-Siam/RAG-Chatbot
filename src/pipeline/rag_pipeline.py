@@ -7,8 +7,6 @@ from components.prompt_template import build_rag_prompt
 from config.settings import settings
 from logger import logging
 
-import os
-
 
 class RAGPipeline:
     def __init__(
@@ -97,12 +95,7 @@ class RAGPipeline:
             top_k=self.top_k
         )
 
-        if not retrieved_chunks:
-            answer = "Not found in the knowledge base."
-            return {
-                "answer": answer,
-                "sources": []
-            }
+
 
         context_parts = []
         sources = []

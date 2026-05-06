@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 from db.database import get_db
 from db.models import Session, KnowledgeBase
 from config.settings import settings
-from api.routes.chat_routes import session_manager
+from components import session_manager
 
 
 router = APIRouter()
@@ -62,7 +62,7 @@ def end_session(session_id: str, db: DBSession = Depends(get_db)):
     if not session_obj:
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_id).first()
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_obj.id).first()
 
     if kb:
         # delete upload directory

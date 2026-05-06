@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from db.database import get_db
 from db.models import Session, KnowledgeBase
 from pipeline.rag_pipeline import RAGPipeline
-from components.session_manager import SessionManager
+from components import session_manager
 from config.settings import settings
 import os
 
@@ -14,7 +14,6 @@ import os
 router = APIRouter()
 
 rag = RAGPipeline()
-session_manager = SessionManager()
 
 
 # =========================
@@ -48,7 +47,7 @@ def chat(
         db.commit()
         
         # 3. Get FAISS path
-        kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_id).first()
+        kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_obj.id).first()
         faiss_path = kb.faiss_path if kb else os.path.join(settings.faiss_base_dir, f"session_{session_id}")
 
         # 4. Get chat history from memory

@@ -32,7 +32,7 @@ def upload_pdf(
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
 
     # 3. Get KB info
-    kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_id).first()
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_obj.id).first()
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found for this session.")
 

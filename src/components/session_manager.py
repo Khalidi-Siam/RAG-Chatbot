@@ -29,3 +29,7 @@ class SessionManager:
         if session_id in self.sessions:
             del self.sessions[session_id]
             logging.info(f"Memory cleared: {session_id}")
+
+
+# ✅ Singleton instance (global shared memory)
+session_manager = SessionManager()
