@@ -1,16 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
-from sqlalchemy.sql import func
+from datetime import datetime, timezone
 
 from db.database import get_db
-from db.models import Session
+from db.models import Session, KnowledgeBase
 from pipeline.rag_pipeline import RAGPipeline
+from components.session_manager import SessionManager
+from config.settings import settings
+import os
 
 
 router = APIRouter()
 
 rag = RAGPipeline()
+session_manager = SessionManager()
 
 
 # =========================
@@ -40,14 +44,26 @@ def chat(
 
     try:
         # 2. Update last activity (FIXED PROPERLY)
-        session_obj.last_activity = func.now()
+        session_obj.last_activity = datetime.now(timezone.utc)
         db.commit()
+        
+        # 3. Get FAISS path
+        kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_id).first()
+        faiss_path = kb.faiss_path if kb else os.path.join(settings.faiss_base_dir, f"session_{session_id}")
 
-        # 3. Run RAG pipeline
+        # 4. Get chat history from memory
+        history = session_manager.get_history(session_id, last_n=6)
+
+        # 5. Run RAG pipeline (pure stateless)
         result = rag.ask(
-            session_id=session_id,
-            question=payload.question
+            question=payload.question,
+            faiss_path=faiss_path,
+            chat_history=history
         )
+
+        # 6. Update message memory
+        session_manager.add_message(session_id, "user", payload.question)
+        session_manager.add_message(session_id, "assistant", result["answer"])
 
         return {
             "session_id": session_id,

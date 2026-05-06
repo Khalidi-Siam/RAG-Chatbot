@@ -4,7 +4,6 @@ from components.faiss_store import FAISSVectorStore
 from components.retriever import Retriever
 from components.gemini_llm import GeminiLLM
 from components.prompt_template import build_rag_prompt
-from components.session_manager import SessionManager
 from config.settings import settings
 from logger import logging
 
@@ -32,37 +31,7 @@ class RAGPipeline:
         self.embedder = GeminiEmbedder(model_name=settings.embedding_model)
         self.llm = GeminiLLM(model_name=settings.llm_model)
 
-        self.session_manager = SessionManager()
 
-    # =========================
-    # SESSION MANAGEMENT
-    # =========================
-
-    def start_session(self) -> str:
-        return self.session_manager.create_session()
-
-    def end_session(self, session_id: str):
-        self.session_manager.delete_session(session_id)
-
-    # =========================
-    # SESSION VECTOR STORE
-    # =========================
-
-    def _get_vectorstore(self, session_id: str):
-        """
-        Each session has its own FAISS DB folder.
-        """
-        faiss_path = os.path.join(
-            settings.faiss_base_dir,
-            f"session_{session_id}"
-        )
-
-        os.makedirs(faiss_path, exist_ok=True)
-
-        return FAISSVectorStore(
-            persist_path=faiss_path,
-            collection_name="pdf_knowledge"
-        )
 
     # =========================
     # INGESTION (SESSION BASED)
@@ -103,17 +72,19 @@ class RAGPipeline:
             lines.append(f"{msg['role'].upper()}: {msg['message']}")
         return "\n".join(lines)
 
-    def ask(self, session_id: str, question: str) -> dict:
-        logging.info(f"[Session {session_id[:8]}] Q: {question[:80]}")
+    def ask(self, question: str, faiss_path: str, chat_history: list[dict] = None) -> dict:
+        logging.info(f"Q: {question[:80]}")
 
-
-        # store user message
-        self.session_manager.add_message(session_id, "user", question)
+        if chat_history is None:
+            chat_history = []
 
         # =========================
-        # SESSION-SPECIFIC VECTOR DB
+        # LOAD VECTOR DB
         # =========================
-        vectorstore = self._get_vectorstore(session_id)
+        vectorstore = FAISSVectorStore(
+            persist_path=faiss_path,
+            collection_name="pdf_knowledge"
+        )
 
         retriever = Retriever(
             vectorstore=vectorstore,
@@ -128,9 +99,6 @@ class RAGPipeline:
 
         if not retrieved_chunks:
             answer = "Not found in the knowledge base."
-
-            self.session_manager.add_message(session_id, "assistant", answer)
-
             return {
                 "answer": answer,
                 "sources": []
@@ -149,9 +117,7 @@ class RAGPipeline:
             })
 
         context = "\n\n".join(context_parts)
-
-        history = self.session_manager.get_history(session_id, last_n=6)
-        chat_history_text = self._format_chat_history(history)
+        chat_history_text = self._format_chat_history(chat_history)
 
         prompt = build_rag_prompt(
             context=context,
@@ -160,8 +126,6 @@ class RAGPipeline:
         )
 
         answer = self.llm.generate(prompt)
-
-        self.session_manager.add_message(session_id, "assistant", answer)
 
         return {
             "answer": answer,

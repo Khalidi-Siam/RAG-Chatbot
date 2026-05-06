@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 from db.database import get_db
 from db.models import Session, KnowledgeBase
 from config.settings import settings
+from api.routes.chat_routes import session_manager
 
 
 router = APIRouter()
@@ -76,4 +77,23 @@ def end_session(session_id: str, db: DBSession = Depends(get_db)):
     db.delete(session_obj)
     db.commit()
 
+    # clear memory
+    session_manager.delete_session_memory(session_id)
+
     return {"message": "Session ended and cleaned up successfully."}
+
+@router.get("/{session_id}/messages")
+def get_session_messages(session_id: str):
+    """
+    Retrieve the chat history/messages for a given session at any point.
+    """
+    # Fetch up to the last 50 messages, or you can adjust `last_n` as needed
+    history = session_manager.get_history(session_id, last_n=50)
+    
+    if not history:
+        return {"session_id": session_id, "messages": [], "message": "No messages found for this session."}
+        
+    return {
+        "session_id": session_id,
+        "messages": history
+    }
