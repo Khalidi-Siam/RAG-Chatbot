@@ -1,6 +1,5 @@
 langchain-text-splitters
 pymupdf
-langchain
 google-genai
 faiss-cpu
 numpy
