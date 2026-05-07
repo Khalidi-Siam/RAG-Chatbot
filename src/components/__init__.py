@@ -4,7 +4,6 @@ from .faiss_store import FAISSVectorStore
 from .retriever import Retriever
 from .gemini_llm import GeminiLLM
 from .prompt_template import build_rag_prompt
-from .session_manager import session_manager
 
 __all__ = [
     "PDFIngestor",
@@ -13,5 +12,4 @@ __all__ = [
     "Retriever",
     "GeminiLLM",
     "build_rag_prompt",
-    "session_manager",
 ]

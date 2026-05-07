@@ -14,11 +14,13 @@ class RedisSessionManager:
     def _key(self, session_id: str) -> str:
         return f"session:{session_id}:messages"
 
-    def create_memory(self, session_id: str):
+    def create_memory(self, session_id: str, ttl_seconds: int = settings.ttl_seconds):
         key = self._key(session_id)
+
         if self.redis.exists(key) == 0:
             self.redis.set(key, json.dumps([]))
-            logging.info(f"Redis memory created: {session_id}")
+            self.redis.expire(key, ttl_seconds)
+            logging.info(f"Redis memory created: {session_id} with TTL {ttl_seconds}s")
 
     def add_message(self, session_id: str, role: str, message: str, ttl_seconds: int = settings.ttl_seconds):
         key = self._key(session_id)
@@ -29,14 +31,19 @@ class RedisSessionManager:
         messages.append({"role": role, "message": message})
 
         self.redis.set(key, json.dumps(messages))
+
+        # ✅ IMPORTANT: Refresh TTL on every message (session stays alive if user is active)
         self.redis.expire(key, ttl_seconds)
 
-    def get_history(self, session_id: str, last_n: int = 6):
+    def get_history(self, session_id: str, last_n: int = 6, ttl_seconds: int = settings.ttl_seconds):
         key = self._key(session_id)
 
         raw = self.redis.get(key)
         if not raw:
             return []
+
+        # ✅ OPTIONAL: Refresh TTL on read as well (keeps session alive while user is active)
+        self.redis.expire(key, ttl_seconds)
 
         messages = json.loads(raw)
         return messages[-last_n:]
@@ -47,5 +54,5 @@ class RedisSessionManager:
         logging.info(f"Redis memory cleared: {session_id}")
 
 
-# singleton
+# ✅ singleton instance
 session_manager = RedisSessionManager()

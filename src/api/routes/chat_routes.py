@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from db.database import get_db
 from db.models import Session, KnowledgeBase, Document
 from pipeline.rag_pipeline import RAGPipeline
-from components import session_manager
+from services.session_manager import session_manager
 from config.settings import settings
 import os
 

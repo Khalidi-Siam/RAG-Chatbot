@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 from db.database import get_db
 from db.models import Session, KnowledgeBase, Document
 from config.settings import settings
-from components import session_manager
+from services.session_manager import session_manager
 
 
 router = APIRouter()
