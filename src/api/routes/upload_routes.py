@@ -46,11 +46,13 @@ def upload_pdf(
         shutil.copyfileobj(file.file, buffer)
 
     # 5. Insert document row in DB (status = processing)
+    file_size = os.path.getsize(save_path)
     doc = Document(
         knowledge_base_id=kb.id,
         original_filename=file.filename,
         stored_filename=stored_filename,
         file_path=save_path,
+        file_size=file_size,
         status="processing"
     )
     db.add(doc)
@@ -83,6 +85,7 @@ def upload_pdf(
         "message": "PDF uploaded and indexed successfully.",
         "document_id": str(doc.id),
         "filename": file.filename,
+        "file_size": file_size,
         "total_pages": doc.total_pages,
         "total_chunks": doc.total_chunks,
         "status": doc.status

@@ -61,6 +61,7 @@ class Document(Base):
 
     total_pages = Column(Integer, nullable=True)
     total_chunks = Column(Integer, nullable=True)
+    file_size = Column(Integer, nullable=True)
 
     status = Column(String(30), nullable=False, default="indexed")
 

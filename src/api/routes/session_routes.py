@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 
 from db.database import get_db
-from db.models import Session, KnowledgeBase
+from db.models import Session, KnowledgeBase, Document
 from config.settings import settings
 from components import session_manager
 
@@ -96,4 +96,36 @@ def get_session_messages(session_id: str):
     return {
         "session_id": session_id,
         "messages": history
+    }
+
+@router.get("/{session_id}/documents")
+def get_session_documents(session_id: str, db: DBSession = Depends(get_db)):
+    """
+    Retrieve the list of uploaded documents (PDFs) for the current session,
+    including their names and file sizes.
+    """
+    session_obj = db.query(Session).filter(Session.id == session_id).first()
+    if not session_obj:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_obj.id).first()
+    if not kb:
+        return {"session_id": session_id, "documents": []}
+
+    docs = db.query(Document).filter(Document.knowledge_base_id == kb.id).all()
+    
+    doc_list = []
+    for d in docs:
+        doc_list.append({
+            "id": str(d.id),
+            "filename": d.original_filename,
+            "file_size": d.file_size,
+            "total_pages": d.total_pages,
+            "status": d.status,
+            "uploaded_at": d.uploaded_at
+        })
+
+    return {
+        "session_id": session_id,
+        "documents": doc_list
     }

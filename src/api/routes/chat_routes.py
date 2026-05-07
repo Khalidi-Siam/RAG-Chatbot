@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session as DBSession
 from datetime import datetime, timezone
 
 from db.database import get_db
-from db.models import Session, KnowledgeBase
+from db.models import Session, KnowledgeBase, Document
 from pipeline.rag_pipeline import RAGPipeline
 from components import session_manager
 from config.settings import settings
@@ -49,6 +49,18 @@ def chat(
         # 3. Get FAISS path
         kb = db.query(KnowledgeBase).filter(KnowledgeBase.session_id == session_obj.id).first()
         faiss_path = kb.faiss_path if kb else os.path.join(settings.faiss_base_dir, f"session_{session_id}")
+
+        if kb:
+            doc_count = db.query(Document).filter(Document.knowledge_base_id == kb.id).count()
+            if doc_count == 0:
+                answer = "Please upload a document first to start chatting."
+                session_manager.add_message(session_id, "user", payload.question)
+                session_manager.add_message(session_id, "assistant", answer)
+                return {
+                    "session_id": session_id,
+                    "answer": answer,
+                    "sources": []
+                }
 
         # 4. Get chat history from memory
         history = session_manager.get_history(session_id, last_n=6)
