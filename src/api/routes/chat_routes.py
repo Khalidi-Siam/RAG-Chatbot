@@ -63,7 +63,7 @@ def chat(
                 }
 
         # 4. Get chat history from memory
-        history = session_manager.get_history(session_id, last_n=6)
+        history = session_manager.get_history(session_id, last_n=16)
 
         # 5. Run RAG pipeline (pure stateless)
         result = rag.ask(

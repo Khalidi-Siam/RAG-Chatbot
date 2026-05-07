@@ -5,6 +5,11 @@ class Settings(BaseSettings):
     google_api_key: str
     database_url: str
 
+    #upstash-redis
+    upstash_redis_rest_url: str
+    upstash_redis_rest_token: str
+    ttl_seconds: int = 3600  # 1 hour
+
     # Model names
     embedding_model: str = "gemini-embedding-001"
     llm_model: str = "gemini-2.5-flash"
